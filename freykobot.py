@@ -169,7 +169,7 @@ class Config:
     dry_run: bool = True
     allow_live: bool = False
     price_primary: str = "binance"
-    families: list[str] = field(default_factory=lambda: ["btc5m", "eth5m", "btc15m"])
+    families: list[str] = field(default_factory=lambda: ["btc5m", "eth5m"])
     poll_seconds: float = 0.25
     http_timeout: float = 4.0
     max_loops: int = 0
@@ -191,28 +191,30 @@ class Config:
 
     lot_shares: int = 10
     min_order_notional: float = 5.0
-    max_market_cost: float = 160.0
-    max_side_cost: float = 110.0
-    max_trades_per_market: int = 24
-    max_daily_loss: float = 150.0
+    max_market_cost: float = 45.0
+    max_side_cost: float = 28.0
+    max_trades_per_market: int = 6
+    max_worst_case_loss: float = 12.0
+    max_net_shares: float = 90.0
+    max_daily_loss: float = 20.0
     max_buy_price: float = 0.92
-    cooldown_seconds: float = 3.0
+    cooldown_seconds: float = 8.0
 
-    min_momentum_5: float = 0.010
-    min_momentum_10: float = 0.015
+    min_momentum_5: float = 0.030
+    min_momentum_10: float = 0.040
     momentum_to_prob: float = 6.0
-    min_edge: float = 0.035
-    strong_momentum: float = 0.040
+    min_edge: float = 0.080
+    strong_momentum: float = 0.080
 
-    pair_arb_max: float = 0.99
-    hedge_pair_max: float = 1.03
+    pair_arb_max: float = 0.98
+    hedge_pair_max: float = 1.00
     hedge_max_price: float = 0.38
     hedge_target_cost_ratio: float = 0.58
-    avoid_pair_sum_gt: float = 1.14
+    avoid_pair_sum_gt: float = 1.04
 
-    entry_start_5m: float = 285.0
+    entry_start_5m: float = 160.0
     entry_start_15m: float = 840.0
-    entry_end_seconds: float = 7.0
+    entry_end_seconds: float = 12.0
     resolve_delay_seconds: float = 2.0
     require_open_seen: bool = True
     open_capture_grace_seconds: float = 6.0
@@ -221,14 +223,16 @@ class Config:
     def from_env(cls) -> "Config":
         families = [
             f.strip().lower()
-            for f in os.getenv("FREYKO_FAMILIES", "btc5m,eth5m,btc15m").split(",")
+            for f in os.getenv("FREYKO_FAMILIES", "btc5m,eth5m").split(",")
             if f.strip().lower() in FAMILY_CONFIG
         ]
+        if not env_bool("FREYKO_ENABLE_15M", False):
+            families = [f for f in families if "15m" not in f]
         return cls(
             dry_run=env_bool("DRY_RUN", True),
             allow_live=env_bool("FREYKO_ALLOW_LIVE", False),
             price_primary=os.getenv("PRICE_PRIMARY", "binance").strip().lower(),
-            families=families or ["btc5m", "eth5m", "btc15m"],
+            families=families or ["btc5m", "eth5m"],
             poll_seconds=env_float("FREYKO_POLL_SECONDS", 0.25),
             http_timeout=env_float("FREYKO_HTTP_TIMEOUT", 4.0),
             max_loops=env_int("FREYKO_MAX_LOOPS", 0),
@@ -247,25 +251,27 @@ class Config:
             rest_book_fallback_seconds=env_float("REST_BOOK_FALLBACK_SECONDS", 2.0),
             lot_shares=env_int("FREYKO_LOT_SHARES", 10),
             min_order_notional=env_float("FREYKO_MIN_ORDER_NOTIONAL", 5.0),
-            max_market_cost=env_float("FREYKO_MAX_MARKET_COST", 160.0),
-            max_side_cost=env_float("FREYKO_MAX_SIDE_COST", 110.0),
-            max_trades_per_market=env_int("FREYKO_MAX_TRADES_PER_MARKET", 24),
-            max_daily_loss=env_float("FREYKO_DAILY_LOSS_LIMIT", 150.0),
+            max_market_cost=env_float("FREYKO_MAX_MARKET_COST", 45.0),
+            max_side_cost=env_float("FREYKO_MAX_SIDE_COST", 28.0),
+            max_trades_per_market=env_int("FREYKO_MAX_TRADES_PER_MARKET", 6),
+            max_worst_case_loss=env_float("FREYKO_MAX_WORST_CASE_LOSS", 12.0),
+            max_net_shares=env_float("FREYKO_MAX_NET_SHARES", 90.0),
+            max_daily_loss=env_float("FREYKO_DAILY_LOSS_LIMIT", 20.0),
             max_buy_price=env_float("FREYKO_MAX_BUY_PRICE", 0.92),
-            cooldown_seconds=env_float("FREYKO_COOLDOWN_SECONDS", 3.0),
-            min_momentum_5=env_float("FREYKO_MIN_MOMENTUM_5", 0.010),
-            min_momentum_10=env_float("FREYKO_MIN_MOMENTUM_10", 0.015),
+            cooldown_seconds=env_float("FREYKO_COOLDOWN_SECONDS", 8.0),
+            min_momentum_5=env_float("FREYKO_MIN_MOMENTUM_5", 0.030),
+            min_momentum_10=env_float("FREYKO_MIN_MOMENTUM_10", 0.040),
             momentum_to_prob=env_float("FREYKO_MOMENTUM_TO_PROB", 6.0),
-            min_edge=env_float("FREYKO_MIN_EDGE", 0.035),
-            strong_momentum=env_float("FREYKO_STRONG_MOMENTUM", 0.040),
-            pair_arb_max=env_float("FREYKO_PAIR_ARB_MAX", 0.99),
-            hedge_pair_max=env_float("FREYKO_HEDGE_PAIR_MAX", 1.03),
+            min_edge=env_float("FREYKO_MIN_EDGE", 0.080),
+            strong_momentum=env_float("FREYKO_STRONG_MOMENTUM", 0.080),
+            pair_arb_max=env_float("FREYKO_PAIR_ARB_MAX", 0.98),
+            hedge_pair_max=env_float("FREYKO_HEDGE_PAIR_MAX", 1.00),
             hedge_max_price=env_float("FREYKO_HEDGE_MAX_PRICE", 0.38),
             hedge_target_cost_ratio=env_float("FREYKO_HEDGE_TARGET_COST_RATIO", 0.58),
-            avoid_pair_sum_gt=env_float("FREYKO_AVOID_PAIR_SUM_GT", 1.14),
-            entry_start_5m=env_float("FREYKO_ENTRY_START_5M", 285.0),
+            avoid_pair_sum_gt=env_float("FREYKO_AVOID_PAIR_SUM_GT", 1.04),
+            entry_start_5m=env_float("FREYKO_ENTRY_START_5M", 160.0),
             entry_start_15m=env_float("FREYKO_ENTRY_START_15M", 840.0),
-            entry_end_seconds=env_float("FREYKO_ENTRY_END_SECONDS", 7.0),
+            entry_end_seconds=env_float("FREYKO_ENTRY_END_SECONDS", 12.0),
             resolve_delay_seconds=env_float("FREYKO_RESOLVE_DELAY_SECONDS", 2.0),
             require_open_seen=env_bool("FREYKO_REQUIRE_OPEN_SEEN", True),
             open_capture_grace_seconds=env_float("FREYKO_OPEN_CAPTURE_GRACE_SECONDS", 6.0),
@@ -494,6 +500,22 @@ class Inventory:
         if self.up_cost <= 0 or self.down_cost <= 0:
             return 0.0
         return min(self.up_cost, self.down_cost) / max(self.up_cost, self.down_cost)
+
+    def guaranteed_payout(self) -> float:
+        return min(self.up_shares, self.down_shares)
+
+    def worst_case_loss(self) -> float:
+        return max(0.0, self.total_cost - self.guaranteed_payout())
+
+    def net_shares(self) -> float:
+        return abs(self.up_shares - self.down_shares)
+
+    def net_side(self) -> str:
+        if self.up_shares > self.down_shares:
+            return "UP"
+        if self.down_shares > self.up_shares:
+            return "DOWN"
+        return "FLAT"
 
 
 @dataclass
@@ -800,6 +822,24 @@ class FreykoBot:
         amount = shares * price
         return shares, amount
 
+    def simulated_risk(self, inv: Inventory, side: str, shares: float, amount: float) -> dict[str, float]:
+        up_shares = inv.up_shares + (shares if side == "UP" else 0.0)
+        down_shares = inv.down_shares + (shares if side == "DOWN" else 0.0)
+        up_cost = inv.up_cost + (amount if side == "UP" else 0.0)
+        down_cost = inv.down_cost + (amount if side == "DOWN" else 0.0)
+        total_cost = up_cost + down_cost
+        guaranteed = min(up_shares, down_shares)
+        return {
+            "up_shares": up_shares,
+            "down_shares": down_shares,
+            "up_cost": up_cost,
+            "down_cost": down_cost,
+            "total_cost": total_cost,
+            "guaranteed_payout": guaranteed,
+            "worst_case_loss": max(0.0, total_cost - guaranteed),
+            "net_shares": abs(up_shares - down_shares),
+        }
+
     def capture_open_price(self, snap: Snapshot) -> tuple[float, bool]:
         stored = self.open_prices.get(snap.market.slug)
         if stored:
@@ -811,7 +851,7 @@ class FreykoBot:
         print(f"[open] {snap.market.family} {label} open={snap.underlying:.2f} age={age:.1f}s")
         return snap.underlying, estimated
 
-    def can_buy(self, inv: Inventory, side: str, price: float) -> tuple[bool, str]:
+    def can_buy(self, inv: Inventory, side: str, price: float, allow_risk_reduction: bool = False) -> tuple[bool, str]:
         if price <= 0:
             return False, "no ask"
         if price > self.cfg.max_buy_price:
@@ -823,19 +863,44 @@ class FreykoBot:
         shares, amount = self.planned_order(price)
         if shares <= 0 or amount < self.cfg.min_order_notional:
             return False, "below min order notional"
+        pre_loss = inv.worst_case_loss()
+        post = self.simulated_risk(inv, side, shares, amount)
+        reduces_risk = post["worst_case_loss"] < pre_loss
         if inv.total_cost + amount > self.cfg.max_market_cost:
             return False, "market cap"
         if inv.side_cost(side) + amount > self.cfg.max_side_cost:
             return False, "side cap"
+        if (
+            self.cfg.max_worst_case_loss > 0
+            and post["worst_case_loss"] > self.cfg.max_worst_case_loss
+            and not (allow_risk_reduction and reduces_risk)
+        ):
+            return False, f"worst-case risk cap {post['worst_case_loss']:.2f}"
+        if (
+            self.cfg.max_net_shares > 0
+            and post["net_shares"] > self.cfg.max_net_shares
+            and not (allow_risk_reduction and reduces_risk)
+        ):
+            return False, f"net share cap {post['net_shares']:.0f}"
         last = inv.last_buy_ts.get(side, 0.0)
         if time.time() - last < self.cfg.cooldown_seconds:
             return False, "cooldown"
         return True, ""
 
-    def place_buy(self, snap: Snapshot, inv: Inventory, side: str, price: float, reason: str, fair: float, edge: float) -> None:
-        ok, error = self.can_buy(inv, side, price)
+    def place_buy(
+        self,
+        snap: Snapshot,
+        inv: Inventory,
+        side: str,
+        price: float,
+        reason: str,
+        fair: float,
+        edge: float,
+        allow_risk_reduction: bool = False,
+    ) -> bool:
+        ok, error = self.can_buy(inv, side, price, allow_risk_reduction=allow_risk_reduction)
         if not ok:
-            return
+            return False
         shares, amount = self.planned_order(price)
         status = "PAPER"
         if self.real_live:
@@ -857,6 +922,7 @@ class FreykoBot:
             f"d5={snap.d5:+.3f}% d10={snap.d10:+.3f}% pair={snap.ask_pair_sum:.3f}\n"
             f"Paper PnL: ${self.paper_pnl:+.2f}"
         )
+        return True
 
     def evaluate(self, snap: Snapshot) -> None:
         inv = self.inventory_for(snap)
@@ -870,44 +936,80 @@ class FreykoBot:
         if snap.price_lag_ms > self.cfg.max_price_lag_ms:
             self.log_snapshot(snap, inv, "STALE_PRICE_FEED")
             return
-        if snap.ask_pair_sum > self.cfg.avoid_pair_sum_gt:
-            self.log_snapshot(snap, inv, "PAIR_SUM_TOO_HIGH")
-            return
-
-        if 0 < snap.ask_pair_sum <= self.cfg.pair_arb_max:
-            self.place_buy(snap, inv, "UP", snap.up.ask, "PAIR_ARB", 0.5, self.cfg.pair_arb_max - snap.ask_pair_sum)
-            self.place_buy(snap, inv, "DOWN", snap.down.ask, "PAIR_ARB", 0.5, self.cfg.pair_arb_max - snap.ask_pair_sum)
-            decision = "PAIR_ARB"
 
         score = self.momentum_score(snap)
         target = "UP" if score >= 0 else "DOWN"
-        weak = "DOWN" if inv.side_cost("UP") > inv.side_cost("DOWN") else "UP"
         target_ask = snap.up.ask if target == "UP" else snap.down.ask
-        weak_ask = snap.down.ask if weak == "DOWN" else snap.up.ask
         fair = self.fair_probability(score)
         edge = fair - target_ask
+        pre_loss = inv.worst_case_loss()
 
+        # 1) True pair opportunity: buy both sides only when the combined book
+        # is cheap enough and risk caps still allow it.
+        if 0 < snap.ask_pair_sum <= self.cfg.pair_arb_max:
+            bought_up = self.place_buy(
+                snap,
+                inv,
+                "UP",
+                snap.up.ask,
+                "PAIR_ARB_RISK_OK",
+                0.5,
+                self.cfg.pair_arb_max - snap.ask_pair_sum,
+            )
+            bought_down = self.place_buy(
+                snap,
+                inv,
+                "DOWN",
+                snap.down.ask,
+                "PAIR_ARB_RISK_OK",
+                0.5,
+                self.cfg.pair_arb_max - snap.ask_pair_sum,
+                allow_risk_reduction=True,
+            )
+            if bought_up or bought_down:
+                self.log_snapshot(snap, inv, "PAIR_ARB_RISK_OK")
+                return
+
+        # 2) Risk hedge: if inventory is unbalanced, add the weak side only when
+        # it actually reduces worst-case loss. This is not independent from
+        # momentum; it uses the current CLOB price plus current inventory risk.
         if inv.total_cost > 0:
-            dominant = "UP" if inv.up_cost >= inv.down_cost else "DOWN"
+            dominant = inv.net_side()
+            if dominant == "FLAT":
+                dominant = "UP" if inv.up_cost >= inv.down_cost else "DOWN"
             weak = "DOWN" if dominant == "UP" else "UP"
             weak_ask = snap.down.ask if weak == "DOWN" else snap.up.ask
             dominant_avg = inv.avg(dominant)
             projected_pair = dominant_avg + weak_ask if dominant_avg > 0 else 0.0
-            if (
-                inv.side_cost(weak) < inv.side_cost(dominant) * self.cfg.hedge_target_cost_ratio
-                and (weak_ask <= self.cfg.hedge_max_price or (0 < projected_pair <= self.cfg.hedge_pair_max))
-            ):
-                self.place_buy(
+            shares, amount = self.planned_order(weak_ask)
+            post = self.simulated_risk(inv, weak, shares, amount)
+            reduces_risk = post["worst_case_loss"] < pre_loss
+            hedge_quality = (
+                weak_ask <= self.cfg.hedge_max_price
+                or (0 < projected_pair <= self.cfg.hedge_pair_max)
+                or pre_loss > self.cfg.max_worst_case_loss * 0.5
+            )
+            weak_underfunded = inv.side_cost(weak) < inv.side_cost(dominant) * self.cfg.hedge_target_cost_ratio
+            if reduces_risk and hedge_quality and weak_underfunded:
+                if self.place_buy(
                     snap,
                     inv,
                     weak,
                     weak_ask,
-                    "CHEAP_HEDGE",
+                    "RISK_HEDGE_MOMENTUM_AWARE",
                     1.0 - dominant_avg if dominant_avg else 0.5,
-                    self.cfg.hedge_pair_max - projected_pair if projected_pair else 0.0,
-                )
-                decision = "CHEAP_HEDGE"
+                    pre_loss - post["worst_case_loss"],
+                    allow_risk_reduction=True,
+                ):
+                    self.log_snapshot(snap, inv, "RISK_HEDGE_MOMENTUM_AWARE")
+                    return
 
+        if snap.ask_pair_sum > self.cfg.avoid_pair_sum_gt:
+            self.log_snapshot(snap, inv, "PAIR_SUM_TOO_HIGH")
+            return
+
+        # 3) Directional momentum/lag entry: allowed only if the resulting
+        # inventory still respects worst-case loss and net share caps.
         enough_momentum = (
             abs(snap.d5) >= self.cfg.min_momentum_5
             or abs(snap.d10) >= self.cfg.min_momentum_10
@@ -915,8 +1017,17 @@ class FreykoBot:
         )
         strong = abs(score) >= self.cfg.strong_momentum
         if enough_momentum and (edge >= self.cfg.min_edge or (strong and edge >= 0.0)):
-            self.place_buy(snap, inv, target, target_ask, "MOMENTUM_LAG", fair, edge)
-            decision = "MOMENTUM_LAG"
+            shares, amount = self.planned_order(target_ask)
+            post = self.simulated_risk(inv, target, shares, amount)
+            already_net_target = inv.net_side() == target
+            risk_is_getting_worse = post["worst_case_loss"] > pre_loss
+            needs_stronger_signal = already_net_target and pre_loss > self.cfg.max_worst_case_loss * 0.35
+            strong_enough_for_add = strong and edge >= self.cfg.min_edge * 1.5
+            if needs_stronger_signal and risk_is_getting_worse and not strong_enough_for_add:
+                decision = "SKIP_NET_RISK"
+            elif self.place_buy(snap, inv, target, target_ask, "MOMENTUM_LAG_RISK_OK", fair, edge):
+                self.log_snapshot(snap, inv, "MOMENTUM_LAG_RISK_OK")
+                return
 
         self.log_snapshot(snap, inv, decision)
 
@@ -982,7 +1093,8 @@ class FreykoBot:
             "down_bid", "down_ask", "down_age_ms",
             "ask_pair_sum", "buy_sum", "up_shares", "up_cost", "up_avg",
             "down_shares", "down_cost", "down_avg", "pair_avg",
-            "hedge_ratio_cost", "total_cost", "decision",
+            "hedge_ratio_cost", "guaranteed_payout", "worst_case_loss",
+            "net_shares", "trade_count", "total_cost", "decision",
         ]
         append_csv(self.cfg.log_dir / "snapshots.csv", fields, {
             "seen_at": utc_iso(),
@@ -1015,6 +1127,10 @@ class FreykoBot:
             "down_avg": round(inv.avg("DOWN"), 6),
             "pair_avg": round(inv.pair_avg(), 6),
             "hedge_ratio_cost": round(inv.hedge_ratio_cost(), 6),
+            "guaranteed_payout": round(inv.guaranteed_payout(), 4),
+            "worst_case_loss": round(inv.worst_case_loss(), 4),
+            "net_shares": round(inv.net_shares(), 4),
+            "trade_count": inv.trade_count,
             "total_cost": round(inv.total_cost, 4),
             "decision": decision,
         })
@@ -1039,7 +1155,8 @@ class FreykoBot:
             "underlying", "open_price", "open_estimated", "price_lag_ms",
             "d5", "d10", "d30", "score", "fair", "edge", "up_ask",
             "down_ask", "ask_pair_sum", "up_cost", "down_cost", "pair_avg",
-            "total_cost", "error",
+            "guaranteed_payout", "worst_case_loss", "net_shares",
+            "trade_count", "total_cost", "error",
         ]
         append_csv(self.cfg.log_dir / "trades.csv", fields, {
             "seen_at": utc_iso(),
@@ -1070,6 +1187,10 @@ class FreykoBot:
             "up_cost": round(inv.up_cost, 4),
             "down_cost": round(inv.down_cost, 4),
             "pair_avg": round(inv.pair_avg(), 6),
+            "guaranteed_payout": round(inv.guaranteed_payout(), 4),
+            "worst_case_loss": round(inv.worst_case_loss(), 4),
+            "net_shares": round(inv.net_shares(), 4),
+            "trade_count": inv.trade_count,
             "total_cost": round(inv.total_cost, 4),
             "error": error,
         })
@@ -1079,7 +1200,7 @@ class FreykoBot:
             "resolved_at", "family", "slug", "symbol", "outcome", "open_price",
             "open_estimated", "final_price", "up_shares", "up_cost", "up_avg",
             "down_shares", "down_cost", "down_avg", "pair_avg", "total_cost",
-            "payout", "pnl", "total_pnl",
+            "guaranteed_payout", "worst_case_loss", "payout", "pnl", "total_pnl",
         ]
         append_csv(self.cfg.log_dir / "resolutions.csv", fields, {
             "resolved_at": utc_iso(),
@@ -1098,6 +1219,8 @@ class FreykoBot:
             "down_avg": round(inv.avg("DOWN"), 6),
             "pair_avg": round(inv.pair_avg(), 6),
             "total_cost": round(inv.total_cost, 4),
+            "guaranteed_payout": round(inv.guaranteed_payout(), 4),
+            "worst_case_loss": round(inv.worst_case_loss(), 4),
             "payout": round(payout, 4),
             "pnl": round(pnl, 4),
             "total_pnl": round(self.paper_pnl, 4),
@@ -1125,7 +1248,8 @@ class FreykoBot:
                 f"  {inv.family} T-{max(0, inv.window_end-time.time()):.0f}s "
                 f"UP {inv.up_shares:.0f}@{inv.avg('UP'):.3f} "
                 f"DN {inv.down_shares:.0f}@{inv.avg('DOWN'):.3f} "
-                f"cost=${inv.total_cost:.2f} pair={inv.pair_avg():.3f}"
+                f"cost=${inv.total_cost:.2f} worst=${inv.worst_case_loss():.2f} "
+                f"net={inv.net_shares():.0f} pair={inv.pair_avg():.3f}"
             )
 
     async def run(self) -> None:

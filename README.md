@@ -7,6 +7,7 @@ JetFadil research pass:
 - Polymarket CLOB repricing lag
 - two-sided UP/DOWN inventory and cheap hedge ladder
 - small repeated lots held to resolution
+- risk-first order approval using worst-case loss and net-share caps
 
 It starts in dry-run by default. Live mode requires both:
 
@@ -114,5 +115,10 @@ Paper entries also enforce `FREYKO_MIN_ORDER_NOTIONAL=5` by default so dry-run
 orders are closer to live CLOB constraints. Very cheap prices will use more
 shares to reach the notional minimum, then market/side caps decide whether to
 allow or skip the entry.
+
+The `reason` field is the final combined decision label, not a separate bot
+module. For example, `MOMENTUM_LAG_RISK_OK` means momentum and lag were present
+and the risk engine approved the resulting inventory. `RISK_HEDGE_MOMENTUM_AWARE`
+means the hedge reduced worst-case loss under the current market state.
 
 Do not switch to live mode before reviewing several hours of dry-run logs.
