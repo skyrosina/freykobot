@@ -110,4 +110,9 @@ If the bot starts after the current market has already opened, it may log
 `OPEN_NOT_CAPTURED` and skip that market. This is intentional: paper PnL is only
 trusted when the bot captured the real window open price near market start.
 
+Paper entries also enforce `FREYKO_MIN_ORDER_NOTIONAL=5` by default so dry-run
+orders are closer to live CLOB constraints. Very cheap prices will use more
+shares to reach the notional minimum, then market/side caps decide whether to
+allow or skip the entry.
+
 Do not switch to live mode before reviewing several hours of dry-run logs.

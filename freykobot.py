@@ -190,8 +190,10 @@ class Config:
     rest_book_fallback_seconds: float = 2.0
 
     lot_shares: int = 10
+    min_order_notional: float = 5.0
     max_market_cost: float = 160.0
     max_side_cost: float = 110.0
+    max_trades_per_market: int = 24
     max_daily_loss: float = 150.0
     max_buy_price: float = 0.92
     cooldown_seconds: float = 3.0
@@ -244,8 +246,10 @@ class Config:
             poly_ws_url=os.getenv("POLY_WS_URL", "wss://ws-subscriptions-clob.polymarket.com/ws/market"),
             rest_book_fallback_seconds=env_float("REST_BOOK_FALLBACK_SECONDS", 2.0),
             lot_shares=env_int("FREYKO_LOT_SHARES", 10),
+            min_order_notional=env_float("FREYKO_MIN_ORDER_NOTIONAL", 5.0),
             max_market_cost=env_float("FREYKO_MAX_MARKET_COST", 160.0),
             max_side_cost=env_float("FREYKO_MAX_SIDE_COST", 110.0),
+            max_trades_per_market=env_int("FREYKO_MAX_TRADES_PER_MARKET", 24),
             max_daily_loss=env_float("FREYKO_DAILY_LOSS_LIMIT", 150.0),
             max_buy_price=env_float("FREYKO_MAX_BUY_PRICE", 0.92),
             cooldown_seconds=env_float("FREYKO_COOLDOWN_SECONDS", 3.0),
@@ -452,6 +456,7 @@ class Inventory:
     down_shares: float = 0.0
     down_cost: float = 0.0
     last_buy_ts: dict[str, float] = field(default_factory=dict)
+    trade_count: int = 0
     resolved: bool = False
 
     @property
@@ -476,6 +481,7 @@ class Inventory:
         else:
             self.down_shares += shares
             self.down_cost += amount
+        self.trade_count += 1
         self.last_buy_ts[side] = time.time()
 
     def pair_avg(self) -> float:
@@ -787,6 +793,13 @@ class FreykoBot:
     def fair_probability(self, score: float) -> float:
         return clamp(0.5 + abs(score) * self.cfg.momentum_to_prob, 0.02, 0.98)
 
+    def planned_order(self, price: float) -> tuple[float, float]:
+        if price <= 0:
+            return 0.0, 0.0
+        shares = max(float(self.cfg.lot_shares), math.ceil(self.cfg.min_order_notional / price))
+        amount = shares * price
+        return shares, amount
+
     def capture_open_price(self, snap: Snapshot) -> tuple[float, bool]:
         stored = self.open_prices.get(snap.market.slug)
         if stored:
@@ -803,11 +816,16 @@ class FreykoBot:
             return False, "no ask"
         if price > self.cfg.max_buy_price:
             return False, f"ask {price:.3f} > max {self.cfg.max_buy_price:.3f}"
+        if self.cfg.max_trades_per_market > 0 and inv.trade_count >= self.cfg.max_trades_per_market:
+            return False, "market trade count cap"
         if self.paper_pnl <= -abs(self.cfg.max_daily_loss):
             return False, "daily paper loss limit"
-        if inv.total_cost + self.cfg.lot_shares * price > self.cfg.max_market_cost:
+        shares, amount = self.planned_order(price)
+        if shares <= 0 or amount < self.cfg.min_order_notional:
+            return False, "below min order notional"
+        if inv.total_cost + amount > self.cfg.max_market_cost:
             return False, "market cap"
-        if inv.side_cost(side) + self.cfg.lot_shares * price > self.cfg.max_side_cost:
+        if inv.side_cost(side) + amount > self.cfg.max_side_cost:
             return False, "side cap"
         last = inv.last_buy_ts.get(side, 0.0)
         if time.time() - last < self.cfg.cooldown_seconds:
@@ -818,8 +836,7 @@ class FreykoBot:
         ok, error = self.can_buy(inv, side, price)
         if not ok:
             return
-        shares = float(self.cfg.lot_shares)
-        amount = shares * price
+        shares, amount = self.planned_order(price)
         status = "PAPER"
         if self.real_live:
             status = "LIVE_BLOCKED"
