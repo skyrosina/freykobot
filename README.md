@@ -116,6 +116,15 @@ orders are closer to live CLOB constraints. Very cheap prices will use more
 shares to reach the notional minimum, then market/side caps decide whether to
 allow or skip the entry.
 
+Risk approval uses three extra checks:
+
+- `worst_case_loss`: maximum loss if the smaller side wins
+- `coverage_ratio`: guaranteed payout divided by total cost
+- `min_hedge_efficiency`: hedge loss reduction per dollar added
+
+This prevents expensive "hedges" that barely reduce risk, and blocks high-price
+directional favorites unless they fit the risk/reward profile.
+
 The `reason` field is the final combined decision label, not a separate bot
 module. For example, `MOMENTUM_LAG_RISK_OK` means momentum and lag were present
 and the risk engine approved the resulting inventory. `RISK_HEDGE_MOMENTUM_AWARE`
